@@ -83,6 +83,7 @@ export class GameUI {
       <div class="btns">
         <div class="mbtn" data-m="arcade">アーケード<small>CPUを連戦して勝ち抜く</small></div>
         <div class="mbtn" data-m="vscpu">対CPU（1戦）<small>キャラ・難易度を選んで1試合</small></div>
+        <div class="mbtn" data-m="online">オンライン対戦<small>部屋コードでフレンドとP2P 1v1</small></div>
         <div class="mbtn" data-m="local2p">ローカル2P<small>同一PCで2人対戦（キーボード）</small></div>
         <div class="mbtn" data-m="training">トレーニング<small>サンドバッグ・判定/フレーム表示</small></div>
         <div class="mbtn" data-m="options">オプション<small>ジャイロ/音/演出/操作</small></div>
@@ -207,6 +208,45 @@ export class GameUI {
     t.style.cssText = 'position:fixed;bottom:120px;left:50%;transform:translateX(-50%);z-index:70;max-width:92vw;text-align:center;background:rgba(10,16,30,.9);color:#eaf2ff;padding:10px 18px;border-radius:10px;font-weight:700;font-size:13px;pointer-events:none;border:1px solid rgba(170,200,255,.35)';
     t.textContent = text; document.body.appendChild(t);
     setTimeout(() => { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, ms);
+  }
+
+  // ---- オンライン対戦のロビー ----
+  onlineHome() {
+    this._set(`<button class="back" data-back>← 戻る</button>
+      <h2>オンライン対戦</h2><div class="sub">ONLINE 1v1 ・ P2P（部屋コード）</div>
+      <div class="btns">
+        <div class="mbtn" data-o="create">部屋を作る<small>コードを発行して相手の参加を待つ</small></div>
+        <div class="mbtn" data-o="join">コードで参加<small>相手の6桁コードを入力して接続</small></div>
+      </div>
+      <div class="sub" style="margin-top:18px;opacity:.5">同じ部屋コードを共有した2人で対戦できます</div>`);
+    return this._pick('[data-o],[data-back]', (el) => (el.dataset.back !== undefined ? '__back' : el.dataset.o));
+  }
+
+  onlineJoin() {
+    const w = this._set(`<button class="back" data-back>← 戻る</button>
+      <h2>コードで参加</h2><div class="sub">ENTER ROOM CODE</div>
+      <div class="btns" style="max-width:320px">
+        <input id="rcode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000"
+          style="padding:14px;font-size:28px;text-align:center;letter-spacing:10px;border-radius:12px;border:2px solid rgba(120,170,255,.5);background:#0e1730;color:#eaf2ff;font-weight:800;width:100%">
+        <div class="mbtn" data-join>参加する</div>
+      </div>`);
+    return new Promise((res) => {
+      const input = w.querySelector('#rcode');
+      setTimeout(() => input && input.focus(), 60);
+      const submit = () => { const v = (input.value || '').replace(/\D/g, '').slice(0, 6); if (v.length === 6) res(v); else this.toast('6桁の数字コードを入力してください'); };
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+      w.querySelector('[data-join]').addEventListener('pointerdown', (e) => { e.preventDefault(); submit(); });
+      w.querySelector('[data-back]').addEventListener('pointerdown', (e) => { e.preventDefault(); res('__back'); });
+    });
+  }
+
+  // 待機/接続中の表示。キャンセル押下で resolve('__cancel')。コード未指定なら非表示。
+  netInfo(title, sub, code) {
+    this._set(`<h2>${title}</h2>
+      ${code ? `<div style="font-size:46px;font-weight:900;letter-spacing:12px;color:#ffd24a;margin:14px 0 4px;text-shadow:0 0 26px rgba(255,210,74,.5)">${code}</div>` : ''}
+      <div class="sub" style="margin-top:10px">${sub}</div>
+      <div class="row"><div class="mbtn" data-cancel style="min-width:180px">キャンセル</div></div>`);
+    return this._pick('[data-cancel]', () => '__cancel');
   }
 
   _pick(sel, map) {

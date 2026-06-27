@@ -20,6 +20,7 @@ import { GameUI } from './ui/menus.js';
 import { Controller, Keyboard, KEYMAP_P1, KEYMAP_P2, buildIntent, heldOnly } from './input/controls.js';
 import { TouchControls, isTouchDevice } from './input/touch.js';
 import { GyroControls } from './input/gyro.js';
+import { NetGame } from './net/online.js';
 
 // 勝利ポーズの複数パターン（ダンス / カポエイラ / 派手な蹴り）。ラウンドで切替。
 const VICTORY_POSES = ['win_dance', 'win_capoeira', 'win_kick'];
@@ -201,6 +202,7 @@ class Game {
       while (!back) {
         const mode = await this.ui.mainMenu();
         if (mode === 'options') { await this.ui.options(this.audio, (d) => { CONFIG.DEBUG_BOXES = d; }); continue; }
+        if (mode === 'online') { await this._runOnline(); continue; }
         const setup = await this._configureMatch(mode);
         if (!setup) continue; // 戻る
         await this._runMode(mode, setup);
@@ -440,7 +442,7 @@ class Game {
   }
 
   _togglePause() {
-    if (!this.running) return;
+    if (!this.running || this._online) return;   // オンラインは片側だけ停止すると desync するため不可
     this.paused = !this.paused;
     if (this.paused) {
       this.ui.pause().then(async (act) => {
@@ -449,6 +451,173 @@ class Game {
         else if (act === 'rematch') { this.paused = false; this.ui.hide(); this.match._placeStart(); for (const f of this.match.fighters) { f.hp = f.maxHp; f.gauge = 0; } this.match.wins = [0, 0]; this.match.round = 1; this.match.timer = this.match.roundTimeMax; this.match.phase = ST.INTRO; this.match.phaseFrame = 0; this._last = performance.now(); }
         else if (act === 'menu') { this.paused = false; this.ui.hide(); this._returnToMenu(); }
       });
+    }
+  }
+
+  // ================= オンライン対戦（P2P・決定論ロックステップ） =================
+  async _runOnline() {
+    const ui = this.ui;
+    const net = new NetGame({ inputDelay: 3 });
+    this._net = net;
+    net.onError = (w) => ui.toast('通信エラー: ' + w, 2200);
+    const cleanup = async () => { try { await net.leave(); } catch (e) {} this._net = null; };
+
+    // 1) ホーム（部屋を作る / コードで参加）
+    const home = await ui.onlineHome();
+    if (home === '__back') { await cleanup(); return; }
+
+    // 接続待ち（onConnected / onClosed のどちらか）
+    let resolveConn; const connP = new Promise((r) => { resolveConn = r; });
+    net.onConnected = () => resolveConn(true);
+    net.onClosed = () => resolveConn(false);
+
+    try {
+      if (home === 'create') {
+        const code = await net.host('HOST');
+        const cancelP = ui.netInfo('部屋を作成しました', '相手の参加と P2P 接続を待っています…', code);
+        const r = await Promise.race([connP, cancelP]);
+        if (r !== true) { await cleanup(); return; }
+      } else {
+        const code = await ui.onlineJoin();
+        if (code === '__back') { await cleanup(); return; }
+        const cancelP = ui.netInfo('参加中', 'ホストへ接続しています…', code);
+        try { await net.join(code, 'GUEST'); }
+        catch (e) { ui.toast(String((e && e.message) || e), 2800); await cleanup(); return; }
+        const r = await Promise.race([connP, cancelP]);
+        if (r !== true) { await cleanup(); return; }
+      }
+    } catch (e) { ui.toast('接続失敗: ' + ((e && e.message) || e), 2600); await cleanup(); return; }
+
+    // 2) 接続成立 → 各自が自分のキャラを選択（ホストはステージも）
+    ui.toast('接続しました！キャラクターを選択', 1600);
+    const pick = await ui.selectCharacter(this.roster, {
+      title: 'あなたのキャラ', accent: net.isHost ? '#7cf' : '#f86',
+      sub: net.isHost ? 'YOU = 1P（左）' : 'YOU = 2P（右）',
+    });
+    if (pick === '__back') { await cleanup(); return; }
+    let stageId = STAGES[0].id;
+    if (net.isHost) {
+      const st = await ui.selectStage(STAGES);
+      if (st === '__back') { await cleanup(); return; }
+      stageId = st.id;
+    }
+
+    // 3) キャラ送信 → 設定確定（host が seed/両者キャラ/ステージを配布）を待つ
+    const cfg = await new Promise((res) => {
+      net.onReady = (config) => res(config);
+      net.onClosed = () => res(null);
+      ui.netInfo('準備完了', '相手とマッチ設定を同期しています…', null);
+      net.submitPick(pick.id, net.isHost ? stageId : null);
+    });
+    if (!cfg) { ui.toast('相手が切断しました', 2400); await cleanup(); return; }
+
+    // 4) 同一 Match を構築して対戦ループ
+    let winner = -1;
+    try { winner = await this._playOnlineMatch(net, cfg); }
+    catch (e) { console.error('online match error', e); ui.toast('対戦エラー: ' + ((e && e.message) || e), 2800); }
+    await cleanup();
+
+    // 5) リザルト
+    if (winner >= 0) {
+      const youWon = winner === net.localPlayer;
+      await ui.result(youWon ? 'YOU WIN' : 'YOU LOSE', youWon ? '#ffd24a' : '#f86', ['オンライン対戦'], [{ id: 'menu', label: 'メニューへ' }]);
+    }
+    ui.hide();
+  }
+
+  async _playOnlineMatch(net, cfg) {
+    const ui = this.ui;
+    const rA = this.roster.find((c) => c.id === cfg.aId) || this.roster[0];
+    const rB = this.roster.find((c) => c.id === cfg.bId) || this.roster[1];
+    const stage = getStage(cfg.stageId) || STAGES[0];
+    const youIdx = net.localPlayer;
+
+    const ld = ui.loading('対戦相手と同期');
+    // 決定論シム（共有 seed）。両ピアで完全一致する。
+    this.match = new Match(rA, rB, stage, { seed: cfg.seed, roundTime: CONFIG.ROUND_TIME });
+    net.attachMatch(this.match);
+
+    this._teardownArena();
+    this.cam.endVictory();
+    this.stageView = new StageView(this.scene, stage, { lowSpec: this.coarse });
+    this.fx = new FX(this.scene, this.cam);
+    this.views = [
+      new FighterView(this.scene, this.match.fighters[0], { facingOffset: this.facingOffset, assetVersion: this.assetVersion, sideColor: 0x3bd6ff, isPlayer: youIdx === 0 }),
+      new FighterView(this.scene, this.match.fighters[1], { facingOffset: this.facingOffset, assetVersion: this.assetVersion, sideColor: 0xff7a4a, isPlayer: youIdx === 1 }),
+    ];
+    ld.set(0.2, rA.nameJa + ' 読込'); await this.views[0].load(this.manifest, rA);
+    ld.set(0.6, rB.nameJa + ' 読込'); await this.views[1].load(this.manifest, rB);
+    ld.set(1, '開始');
+
+    this.hud.el.style.display = '';
+    const tag = (i) => (i === youIdx ? '（あなた）' : '（相手）');
+    this.hud.setup(this.match, [rA.nameJa + ' ' + tag(0), rB.nameJa + ' ' + tag(1)], [rA.label, rB.label], CONFIG.ROUNDS_TO_WIN,
+      'オンライン対戦 ・ 入力遅延 ' + net.delay + 'F ・ P/Esc は使用不可');
+    this.hud.showBanner('ROUND ' + this.match.round, rA.nameJa + ' vs ' + rB.nameJa, '#fff', 1.6);
+    if (this.touch) this.touch.show(true);
+    ui.hide();
+
+    const localAgent = new HumanAgent(this.c1);
+    const ROUND_AUTO = CONFIG.ROUND_END_FRAMES + 120;   // KO後 約2秒で両者自動的に次へ（同期）
+    this._online = true;
+    let netClosed = false;
+    net.onClosed = () => { netClosed = true; };
+    net.onDesync = (info) => { console.warn('DESYNC @frame', info.frame, info); ui.toast('⚠ 同期ズレを検出（通信品質）', 3200); };
+
+    const finish = (w) => {
+      this.running = false; cancelAnimationFrame(this._raf);
+      this._online = false; this._setNetStall(false);
+      if (this.touch) this.touch.show(false);
+      this.hud.el.style.display = 'none';
+      return w;
+    };
+
+    return new Promise((resolve) => {
+      this.running = true; this.paused = false; this._last = performance.now();
+      const loop = () => {
+        if (!this.running) return;
+        this._raf = requestAnimationFrame(loop);
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - this._last) / 1000); this._last = now;
+
+        if (netClosed) { ui.toast('相手が切断しました', 2600); return resolve(finish(-1)); }
+
+        // ネットプレイ進行: ローカル入力送信 + 揃った分 step（ラウンドは両者同フレームで自動進行）
+        const r = net.pump(localAgent, dt, (match) => {
+          if (match.canProceed && match.phaseFrame >= ROUND_AUTO) match.proceed();
+        });
+        if (r.events && r.events.length) this._handleEvents(r.events);
+        this._phaseBanners({});
+        this._setNetStall(net.stalledFrames > 6);
+
+        // 描画
+        const rts = this.match.hitstop > 0 || this.match.superFreeze > 0 ? 0.04 : 1;
+        for (const v of this.views) v.render(dt, rts);
+        this.fx.syncProjectiles(this.match.projectiles);
+        this.fx.update(dt);
+        this.cam.update(dt, this.match.fighters[0], this.match.fighters[1]);
+        this.hud.update(dt);
+        if (this.touch) {
+          const f = this.match.fighters[youIdx];
+          this.touch.setAvailability({ P: true, K: true, S: f.gauge >= CONFIG.THRESH_S, SP: f.sp >= CONFIG.SP_MAX });
+        }
+        this.c1.endFrame(); this.c2.endFrame();
+        this.renderer.render(this.scene, this.cam.cam);
+
+        if (this.match.phase === 'matchEnd') resolve(finish(this.match.matchWinner));
+      };
+      this._raf = requestAnimationFrame(loop);
+    });
+  }
+
+  _setNetStall(on) {
+    if (on && !this._stallEl) {
+      const e = document.createElement('div');
+      e.textContent = '相手の入力待ち…';
+      e.style.cssText = 'position:fixed;top:46%;left:50%;transform:translate(-50%,-50%);z-index:80;background:rgba(10,16,30,.86);color:#ffd24a;padding:11px 20px;border-radius:12px;font-weight:800;font-size:15px;pointer-events:none;border:1px solid rgba(255,210,74,.45)';
+      document.body.appendChild(e); this._stallEl = e;
+    } else if (!on && this._stallEl) {
+      this._stallEl.remove(); this._stallEl = null;
     }
   }
 
