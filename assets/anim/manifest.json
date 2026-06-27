@@ -1,0 +1,171 @@
+{
+  "version": 3,
+  "_note": "技ID/状態→クリップ。clips=共通デフォルト。キャラ別差し替えは assets/registry.json の moves で行う(NOVA CLASH)。manifest.characters は anim_demo.html 用の後方互換。水平移動は自動除去(その場再生)。",
+  "characters": {
+    "GAL": {
+      "file": "GAL_rigged_punch.fbx",
+      "moves": {
+        "kick_mid": "martelo_2.fbx",
+        "kick_high": "meia_lua_de_compasso.fbx",
+        "kick_spin": "armada.fbx"
+      }
+    }
+  },
+  "clips": {
+    "idle": {
+      "file": "bouncing_fight_idle.fbx",
+      "loop": true
+    },
+    "walk": {
+      "file": "fight_idle.fbx",
+      "loop": true,
+      "contact": 0.32
+    },
+    "walk_back": {
+      "file": "bouncing_fight_idle.fbx",
+      "loop": true
+    },
+    "guard": {
+      "file": "Blocking.fbx",
+      "loop": true
+    },
+    "crouch": {
+      "file": "ducking.fbx",
+      "loop": false
+    },
+    "dodge": {
+      "file": "dodging.fbx",
+      "loop": false
+    },
+    "jump": {
+      "file": "jumping_up.fbx",
+      "loop": false
+    },
+    "punch_jab": {
+      "file": "GAL_rigged_punch.fbx",
+      "loop": false
+    },
+    "punch_straight": {
+      "file": "body_jab_cross.fbx",
+      "loop": false
+    },
+    "punch_hook": {
+      "file": "Cross_Punch__1_.fbx",
+      "loop": false
+    },
+    "punch_finish": {
+      "file": "elbow_uppercut_combo.fbx",
+      "loop": false
+    },
+    "punch_high": {
+      "file": "illegal_elbow_punch.fbx",
+      "loop": false
+    },
+    "punch_low": {
+      "file": "knee_jab.fbx",
+      "loop": false
+    },
+    "kick_low": {
+      "file": "kicking.fbx",
+      "loop": false,
+      "contact": 0.4
+    },
+    "kick_mid": {
+      "file": "mma_kick.fbx",
+      "loop": false,
+      "contact": 0.43
+    },
+    "kick_high": {
+      "file": "mma_kick_1.fbx",
+      "loop": false,
+      "contact": 0.33
+    },
+    "kick_spin": {
+      "file": "meia_lua_de_compasso.fbx",
+      "loop": false
+    },
+    "sweep": {
+      "file": "chapa_giratoria_2.fbx",
+      "loop": false
+    },
+    "air_punch": {
+      "file": "hurricane_kick.fbx",
+      "loop": false
+    },
+    "air_kick": {
+      "file": "flying_kick.fbx",
+      "loop": false
+    },
+    "throw": {
+      "file": "double_leg_takedown_attacker.fbx",
+      "loop": false
+    },
+    "thrown": {
+      "file": "falling_down.fbx",
+      "loop": false
+    },
+    "hit_mid": {
+      "file": "hit_to_head.fbx",
+      "loop": false
+    },
+    "hit_high": {
+      "file": "head_hit.fbx",
+      "loop": false
+    },
+    "hit_low": {
+      "file": "getting_hit_backwards.fbx",
+      "loop": false
+    },
+    "hit_big": {
+      "file": "big_hit_to_head.fbx",
+      "loop": false
+    },
+    "launch": {
+      "file": "getting_hit_backwards.fbx",
+      "loop": false
+    },
+    "knockdown": {
+      "file": "falling_down.fbx",
+      "loop": false
+    },
+    "getup": {
+      "file": "getting_up.fbx",
+      "loop": false
+    },
+    "ko": {
+      "file": "knocked_out.fbx",
+      "loop": false
+    },
+    "win": {
+      "file": "hip_hop_dancing.fbx",
+      "loop": true
+    },
+    "win_dance": {
+      "file": "hip_hop_dancing.fbx",
+      "loop": true
+    },
+    "win_capoeira": {
+      "file": "capoeira.fbx",
+      "loop": true
+    },
+    "win_kick": {
+      "file": "hurricane_kick.fbx",
+      "loop": true
+    },
+    "special_cast": {
+      "file": "fireball.fbx",
+      "loop": false,
+      "contact": 0.5
+    },
+    "special_dash": {
+      "file": "flying_kick.fbx",
+      "loop": false,
+      "contact": 0.79
+    },
+    "super": {
+      "file": "hurricane_kick.fbx",
+      "loop": false,
+      "contact": 0.48
+    }
+  }
+}

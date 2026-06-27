@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05070e">
+<!-- ホーム画面に追加すると全画面（URLバー無し）で起動できる -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NOVA CLASH">
+<meta name="mobile-web-app-capable" content="yes">
+<title>NOVA CLASH — 3D Action Fighting</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070e;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; color: #dfe8ff;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; touch-action: none; position: fixed; inset: 0; z-index: 0; }
+  /* iOS のセーフエリア対応 */
+  @supports (padding: max(0px)) { body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); } }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js" } }
+</script>
+</head>
+<body>
+<noscript>NOVA CLASH は JavaScript と WebGL2 が必要です。</noscript>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

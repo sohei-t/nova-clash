@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "_note": "データ駆動ロースター(SPEC §4.6)。新キャラ追加=再リグFBXを assets/anim/ に置き、ここに1行足すだけ。本体コード無改修。fbx 404 はフォールバック。archetype は src/data/profiles.js を参照。moves=技ID→クリップfbx の見た目差し替え(操作・判定は共通)。tint=メッシュ色味/UIアクセント。assetVersion は ?v= キャッシュ回避。",
+  "assetVersion": "20260627212848",
+  "characters": [
+    {
+      "id": "GAL",
+      "name": "GALL",
+      "nameJa": "ギャル",
+      "fbx": "GAL_rigged_punch.fbx",
+      "thumb": "assets/characters/GAL/thumbnail.png",
+      "archetype": "balance",
+      "tint": "#55ddff",
+      "facingOffset": 0,
+      "moves": {
+        "kick_mid": "martelo_2.fbx",
+        "kick_high": "meia_lua_de_compasso.fbx",
+        "kick_spin": "armada.fbx",
+        "kick_low": "chapa_giratoria_2.fbx",
+        "special_dash": "flying_kick.fbx",
+        "super": "martelo_do_chau_sem_mao.fbx"
+      },
+      "enabled": true,
+      "stats": {}
+    },
+    {
+      "id": "YOSHIKATSU",
+      "name": "YOSHIKATSU",
+      "nameJa": "ヨシカツ",
+      "fbx": "YOSHIKATSU_rigged.fbx",
+      "archetype": "balance",
+      "tint": "#ffaa44",
+      "moves": {
+        "throw": "double_leg_takedown_attacker.fbx",
+        "special_dash": "double_leg_takedown_attacker_1.fbx",
+        "kick_low": "flying_kick.fbx",
+        "walk": "Predator-01_rigged.fbx"
+      },
+      "enabled": true,
+      "thumb": "assets/characters/YOSHIKATSU/thumbnail.png",
+      "stats": {}
+    },
+    {
+      "id": "YANMAR",
+      "name": "YANMAR",
+      "nameJa": "ヤンマー",
+      "fbx": "YANMAR_rigged.fbx",
+      "archetype": "balance",
+      "tint": "#cc88ff",
+      "moves": {
+        "punch_high": "illegal_elbow_punch.fbx",
+        "kick_low": "Strike_Foward_Jog.fbx"
+      },
+      "enabled": true,
+      "thumb": "assets/characters/YANMAR/thumbnail.png",
+      "stats": {}
+    },
+    {
+      "id": "NEO",
+      "name": "SOHEI",
+      "archetype": "balance",
+      "enabled": true,
+      "fbx": "NEO_rigged.fbx",
+      "moves": {
+        "kick_mid": "mma_kick.fbx",
+        "kick_high": "NEO_kick_high.fbx",
+        "kick_spin": "armada.fbx",
+        "kick_low": "mma_kick.fbx",
+        "special_dash": "flying_kick.fbx",
+        "punch_hook": "NEO_punch_hook.fbx",
+        "walk": "NEO_walk.fbx",
+        "walk_back": "NEO_walk_back.fbx"
+      },
+      "nameJa": "",
+      "tint": "#9dff8a",
+      "thumb": "assets/characters/NEO/thumbnail.png"
+    },
+    {
+      "id": "ALIEN-001",
+      "name": "ALIEN-001",
+      "archetype": "balance",
+      "enabled": true,
+      "fbx": "ALIEN-001_rigged.fbx",
+      "moves": {
+        "throw": "double_leg_takedown_attacker.fbx",
+        "special_dash": "double_leg_takedown_attacker_1.fbx",
+        "punch_hook": "cross_punch.fbx",
+        "punch_jab": "hook.fbx",
+        "punch_straight": "Punch.fbx",
+        "kick_low": "Mma_Kick__3_.fbx",
+        "win_kick": "Twist_Dance.fbx",
+        "idle": "Zombie_Idle.fbx",
+        "walk": "NEO_walk_back.fbx"
+      },
+      "thumb": "assets/characters/ALIEN-001/thumbnail.png",
+      "nameJa": "",
+      "tint": "#88aaff",
+      "stats": {}
+    },
+    {
+      "id": "Predator-01",
+      "name": "Predator-01",
+      "archetype": "technical",
+      "enabled": true,
+      "fbx": "Predator-01_rigged.fbx",
+      "moves": {
+        "punch_high": "illegal_elbow_punch.fbx",
+        "kick_spin": "meia_lua_de_compasso.fbx",
+        "walk": "Unarmed_Walk_Forward.fbx",
+        "kick_mid": "Side_Kick.fbx"
+      },
+      "nameJa": "",
+      "tint": "#88aaff",
+      "stats": {},
+      "thumb": "assets/characters/Predator-01/thumbnail.png"
+    },
+    {
+      "id": "KUMAMON-01",
+      "name": "KUMAMON-01",
+      "archetype": "grappler",
+      "enabled": true,
+      "fbx": "KUMAMON-01_rigged.fbx",
+      "moves": {
+        "throw": "double_leg_takedown_attacker.fbx",
+        "special_dash": "Dual_Weapon_Combo.fbx",
+        "idle": "ALIEN-001_rigged.fbx",
+        "walk": "Run.fbx",
+        "walk_back": "Unarmed_Run_Back.fbx",
+        "super": "Standing_Melee_Run_Jump_Attack.fbx",
+        "special_cast": "fireball.fbx"
+      },
+      "thumb": "assets/characters/KUMAMON-01/thumbnail.png",
+      "nameJa": "",
+      "tint": "#88aaff",
+      "stats": {}
+    },
+    {
+      "id": "GACHAPIN-01",
+      "name": "GACHAPIN-01",
+      "archetype": "zoner",
+      "enabled": true,
+      "fbx": "GACHAPIN-01_rigged.fbx",
+      "moves": {
+        "special_cast": "fireball.fbx",
+        "kick_high": "Mma_Kick__1_.fbx",
+        "walk": "Unarmed_Walk_Forward.fbx",
+        "walk_back": "Unarmed_Run_Back.fbx",
+        "kick_low": "Mma_Kick__2_.fbx",
+        "super": "Mutant_Swiping.fbx",
+        "special_dash": "fireball.fbx"
+      },
+      "nameJa": "",
+      "tint": "#88aaff",
+      "stats": {},
+      "thumb": "assets/characters/GACHAPIN-01/thumbnail.png"
+    },
+    {
+      "id": "MUKKU-01",
+      "name": "MUKKU-01",
+      "archetype": "balance",
+      "enabled": true,
+      "fbx": "MUKKU-01_rigged.fbx",
+      "moves": {
+        "throw": "double_leg_takedown_attacker.fbx",
+        "special_dash": "fireball.fbx",
+        "walk": "Predator-01_rigged.fbx",
+        "walk_back": "Unarmed_Run_Back.fbx",
+        "win_kick": "Swing_Dancing.fbx"
+      },
+      "thumb": "assets/characters/MUKKU-01/thumbnail.png",
+      "nameJa": "",
+      "tint": "#88aaff",
+      "stats": {}
+    }
+  ]
+}
