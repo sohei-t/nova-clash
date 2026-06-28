@@ -637,6 +637,7 @@ class Game {
         '<div style="font-size:22px;font-weight:900;letter-spacing:1px">' + (char.nameJa || char.name) + '</div>' +
         '<div style="font-size:11px;font-weight:800;color:' + tint + ';border:1px solid ' + tint + '66;border-radius:20px;padding:2px 10px">' + badge + '</div>' +
       '</div>' +
+      '<div data-bg style="position:absolute;top:max(12px,env(safe-area-inset-top));right:16px;z-index:2;pointer-events:auto;padding:8px 13px;border-radius:10px;border:1px solid rgba(170,200,255,.4);background:rgba(20,30,55,.72);font-weight:800;font-size:13px;cursor:pointer">🌙 濃色</div>' +
       '<div data-hint style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:.5;font-size:13px;pointer-events:none;text-shadow:0 1px 4px #000">読み込み中…</div>' +
       '<div style="position:absolute;bottom:0;left:0;right:0;padding:18px 16px max(18px,env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(5,7,14,.92),transparent);text-align:center">' +
         '<div style="font-size:13px;opacity:.8;margin-bottom:12px">' + (char.label || char.archetype || '') + (char.name && char.name !== (char.nameJa || '') ? ' ・ ' + char.name : '') + '</div>' +
@@ -659,10 +660,9 @@ class Game {
       this.renderer.setSize(w, h);
       pcam.aspect = w / h;
       if (frameInfo) {
-        const cy = frameInfo.H * 0.5;                       // 腰 ≈ 中央高さ を注視
+        const cy = frameInfo.cy;                            // 全身の縦中心（腰〜胸あたり）を注視
         const vfov = pcam.fov * Math.PI / 180;
-        // 高さフィット（全身が必ず縦に収まる）。idle は立ち姿勢で常に縦長なので横クリップしない。
-        const dist = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;
+        const dist = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;   // 高さフィット（全身が縦に収まる）
         pcam.position.set(0, cy, dist);
         pcam.lookAt(0, cy, 0);
       }
@@ -673,10 +673,34 @@ class Game {
 
     let rotY = Math.PI * 0.08, dragging = false, lastX = 0;
     const hintEl = el.querySelector('[data-hint]');
-    const onDown = (e) => { if (e.target.closest('[data-back],[data-confirm]')) return; dragging = true; lastX = e.clientX; if (hintEl) hintEl.style.display = 'none'; };
-    const onMove = (e) => { if (dragging) { rotY += (e.clientX - lastX) * 0.012; lastX = e.clientX; } };
+
+    // 背景の濃淡トグル（黒キャラが暗背景に同化するため）。Studio と同じ localStorage キーを共有。
+    const bgBtn = el.querySelector('[data-bg]');
+    const applyBg = () => {
+      const light = localStorage.getItem('nova_preview_bg') === 'light';
+      pscene.background = new THREE.Color(light ? 0xdfe6f0 : 0x0b1020);
+      if (bgBtn) bgBtn.textContent = light ? '☀ 淡色' : '🌙 濃色';
+    };
+    applyBg();
+    if (bgBtn) bgBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const light = localStorage.getItem('nova_preview_bg') === 'light';
+      localStorage.setItem('nova_preview_bg', light ? 'dark' : 'light');
+      applyBg();
+    });
+
+    // 回転（スワイプ）。setPointerCapture + pointercancel で確実に連続 360°（dragging の取り残しを防ぐ）。
+    const onDown = (e) => {
+      if (e.target.closest('[data-back],[data-confirm],[data-bg]')) return;
+      dragging = true; lastX = e.clientX;
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      if (hintEl) hintEl.style.display = 'none';
+    };
+    const onMove = (e) => { if (dragging) { rotY += (e.clientX - lastX) * 0.014; lastX = e.clientX; } };
     const onUp = () => { dragging = false; };
-    el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+    el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointerup', onUp);
 
     let raf = 0, last = performance.now(), running = true, libRef = null, model = null;
     const loop = () => {
@@ -684,7 +708,7 @@ class Game {
       raf = requestAnimationFrame(loop);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (!dragging) rotY += dt * 0.35;            // ゆっくり自動回転
-      if (model) { libRef.update(dt); model.rotation.y = rotY; }
+      if (model) { libRef.update(dt); if (libRef.groundToFloor) libRef.groundToFloor(); model.rotation.y = rotY; }
       this.renderer.render(pscene, pcam);
     };
     raf = requestAnimationFrame(loop);
@@ -699,11 +723,18 @@ class Game {
         await lib.loadClips();
         if (!running) { lib.dispose(); return; }
         pscene.add(lib.root);
-        lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(lib.root);
-        const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-        lib.root.position.x -= ctr.x; lib.root.position.z -= ctr.z; lib.root.position.y -= box.min.y;
-        frameInfo = { H: sz.y || 1.8, W: Math.max(sz.x, sz.z) || 0.6 };
+        lib.play('idle'); lib.update(0);
+        if (lib.groundToFloor) lib.groundToFloor();          // アニメ後の実際の足位置で接地（バインド姿勢ではなく）
+        lib.root.updateMatrixWorld(true);
+        // アニメ後の実体＝ボーンのワールド位置で全身範囲を測る（setFromObject はバインド姿勢しか返さずズレる）。
+        const box = new THREE.Box3(), v = new THREE.Vector3();
+        lib.root.traverse((o) => { if (o.isBone) { v.setFromMatrixPosition(o.matrixWorld); box.expandByPoint(v); } });
+        if (box.isEmpty()) box.setFromObject(lib.root);
+        const ctr = box.getCenter(new THREE.Vector3());
+        lib.root.position.x -= ctr.x; lib.root.position.z -= ctr.z;   // 水平中心化（縦の接地は毎フレーム groundToFloor）
+        const H = box.max.y + 0.2;                            // 足元(0)〜頭ボーン + メッシュ表面ぶんの余白
+        const HH = H > 0.5 ? H : 1.8;
+        frameInfo = { H: HH, cy: HH * 0.52 };
         libRef = lib; model = lib.root;
         reframe();
         if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
@@ -720,7 +751,8 @@ class Game {
 
     running = false; cancelAnimationFrame(raf);
     window.removeEventListener('resize', reframe);
-    el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+    el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp); window.removeEventListener('pointerup', onUp);
     el.remove();
     if (libRef) { try { if (libRef.root) pscene.remove(libRef.root); libRef.dispose(); } catch (e) {} }
     this._onResize();   // ゲーム用にレンダラ/カメラの aspect を戻す

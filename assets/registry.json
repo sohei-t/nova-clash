@@ -1,7 +1,7 @@
 {
   "version": 1,
   "_note": "データ駆動ロースター(SPEC §4.6)。新キャラ追加=再リグFBXを assets/anim/ に置き、ここに1行足すだけ。本体コード無改修。fbx 404 はフォールバック。archetype は src/data/profiles.js を参照。moves=技ID→クリップfbx の見た目差し替え(操作・判定は共通)。tint=メッシュ色味/UIアクセント。assetVersion は ?v= キャッシュ回避。",
-  "assetVersion": "20260628092626",
+  "assetVersion": "20260628094455",
   "characters": [
     {
       "id": "GAL",
@@ -151,6 +151,18 @@
       "nameJa": "",
       "tint": "#88aaff",
       "stats": {}
+    },
+    {
+      "id": "GACHAPIN-01",
+      "name": "GACHAPIN-01",
+      "archetype": "technical",
+      "enabled": true,
+      "fbx": "GACHAPIN-01_rigged.fbx",
+      "moves": {
+        "punch_high": "illegal_elbow_punch.fbx",
+        "kick_spin": "meia_lua_de_compasso.fbx"
+      },
+      "thumb": "assets/characters/GACHAPIN-01/thumbnail.png"
     }
   ]
 }
