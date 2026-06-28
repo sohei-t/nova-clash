@@ -4,8 +4,8 @@
 //       P+K 投げ・必殺/スーパー）。タッチ/ジャイロも Controller に書き込む。
 // =====================================================================
 
-import { emptyIntent } from '../core/sim.js';
-import { CONFIG } from '../core/constants.js';
+import { emptyIntent } from '../core/sim.js?v=1782623521';
+import { CONFIG } from '../core/constants.js?v=1782623521';
 
 const BTNS = ['P', 'K', 'S', 'G', 'JUMP', 'SUPER', 'GRAB'];
 

@@ -4,8 +4,8 @@
 // 決定論: match.rng を使う（Math.random 不使用）。
 // =====================================================================
 
-import { ST, CONFIG } from './constants.js';
-import { emptyIntent } from './sim.js';
+import { ST, CONFIG } from './constants.js?v=1782623521';
+import { emptyIntent } from './sim.js?v=1782623521';
 
 const hypot = Math.hypot;
 

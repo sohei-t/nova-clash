@@ -12,7 +12,7 @@
 // このファイルはトランスポート(WebRTC)もループ(rAF)も知らない純粋なバッファ管理。
 // → tests/net.mjs が「遅延・順序入替を伴う2セッションが完全同期する」ことを検証する。
 // =====================================================================
-import { emptyIntent } from '../core/sim.js';
+import { emptyIntent } from '../core/sim.js?v=1782623521';
 
 export class LockstepSession {
   // localPlayer: 自分が操作するファイター index（0 or 1）

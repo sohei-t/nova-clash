@@ -11,7 +11,7 @@
 //   lib.onFinished((name)=>{ ... });  lib.play('idle');  // 毎フレーム lib.update(dt)
 
 import * as THREE from 'three';
-import { FBXLoader } from '../lib/loaders/FBXLoader.js';
+import { FBXLoader } from '../lib/loaders/FBXLoader.js?v=1782623521';
 
 const _loader = new FBXLoader();
 const loadFBX = (url) => new Promise((res, rej) => _loader.load(url, res, undefined, rej));

@@ -5,23 +5,23 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { DT, CONFIG, ST } from './core/constants.js';
-import { Match, emptyIntent } from './core/sim.js';
-import { FighterAI } from './core/ai.js';
-import { loadRegistry } from './data/registry.js';
-import { STAGES, getStage } from './data/stages.js';
-import { FighterView } from './render/fighterView.js';
-import { GameCamera } from './render/camera.js';
-import { StageView } from './render/stageView.js';
-import { FX } from './render/fx.js';
-import { AudioKit } from './render/audio.js';
-import { HUD } from './ui/hud.js';
-import { GameUI } from './ui/menus.js';
-import { Controller, Keyboard, KEYMAP_P1, KEYMAP_P2, buildIntent, heldOnly } from './input/controls.js';
-import { TouchControls, isTouchDevice } from './input/touch.js';
-import { GyroControls } from './input/gyro.js';
-import { NetGame } from './net/online.js';
-import { AnimLibrary } from './anim_library.js';
+import { DT, CONFIG, ST } from './core/constants.js?v=1782623521';
+import { Match, emptyIntent } from './core/sim.js?v=1782623521';
+import { FighterAI } from './core/ai.js?v=1782623521';
+import { loadRegistry } from './data/registry.js?v=1782623521';
+import { STAGES, getStage } from './data/stages.js?v=1782623521';
+import { FighterView } from './render/fighterView.js?v=1782623521';
+import { GameCamera } from './render/camera.js?v=1782623521';
+import { StageView } from './render/stageView.js?v=1782623521';
+import { FX } from './render/fx.js?v=1782623521';
+import { AudioKit } from './render/audio.js?v=1782623521';
+import { HUD } from './ui/hud.js?v=1782623521';
+import { GameUI } from './ui/menus.js?v=1782623521';
+import { Controller, Keyboard, KEYMAP_P1, KEYMAP_P2, buildIntent, heldOnly } from './input/controls.js?v=1782623521';
+import { TouchControls, isTouchDevice } from './input/touch.js?v=1782623521';
+import { GyroControls } from './input/gyro.js?v=1782623521';
+import { NetGame } from './net/online.js?v=1782623521';
+import { AnimLibrary } from './anim_library.js?v=1782623521';
 
 // 勝利ポーズの複数パターン（ダンス / カポエイラ / 派手な蹴り）。ラウンドで切替。
 const VICTORY_POSES = ['win_dance', 'win_capoeira', 'win_kick'];
@@ -652,13 +652,10 @@ class Game {
     const dl2 = new THREE.DirectionalLight(0x88aaff, 0.5); dl2.position.set(-3, 2, -2); pscene.add(dl2);
     const pcam = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
 
-    // 入れ子: turntable(左右ヨー rotation.y) → pitchPivot(上下ピッチ rotation.x)。両方とも原点にあり、
-    // モデルは「見えるメッシュ境界(setFromObject)の中心＝おへそ付近」を原点へ合わせて配置する。
-    // ボーン位置ではなく“見た目”の中心で合わせるので、メッシュとスケルトンがズレたモデルでも公転せず中心で回る。
-    // カメラは原点固定注視＋バウンディング球フィット＝どの向きに回しても全身が画面に収まる。
+    // 横回転（ヨー）のみ。モデルは「見えるメッシュ境界の中心＝おへそ」を原点へ合わせ、その鉛直軸まわりに回す。
+    // → おへそは回転軸上にあるので、横に回しても常に画面中央で固定。高さフィットで適切な大きさに収める。
     const turntable = new THREE.Group(); pscene.add(turntable);
-    const pitchPivot = new THREE.Group(); turntable.add(pitchPivot);
-    let frameInfo = null;   // { R }
+    let frameInfo = null;   // { H }
     let radius = 3, dragging = false, lastX = 0, lastY = 0;
     const reframe = () => {
       const w = window.innerWidth, h = window.innerHeight;
@@ -666,17 +663,15 @@ class Game {
       pcam.aspect = w / h;
       if (frameInfo) {
         const vfov = pcam.fov * Math.PI / 180;
-        const hfov = 2 * Math.atan(Math.tan(vfov / 2) * pcam.aspect);
-        const fov = Math.min(vfov, hfov);                  // 狭い方の画角に球を収める＝どの向きに回しても見切れない
-        radius = frameInfo.R / Math.sin(fov / 2) * 1.08;
-        pcam.position.set(0, 0, radius);
-        pcam.lookAt(0, 0, 0);
+        radius = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.12;   // 全身が縦に収まる高さフィット
+        pcam.position.set(0, frameInfo.navelY, radius);
+        pcam.lookAt(0, frameInfo.navelY, 0);                      // おへそ(ボーン中心)を注視＝横回転で固定
       }
       pcam.updateProjectionMatrix();
     };
     reframe();
     window.addEventListener('resize', reframe);
-    const spin = (dYaw, dPitch) => { turntable.rotation.y += dYaw; pitchPivot.rotation.x += dPitch; };
+    const spin = (dYaw) => { turntable.rotation.y += dYaw; };
 
     const hintEl = el.querySelector('[data-hint]');
 
@@ -704,8 +699,7 @@ class Game {
     };
     const onMove = (e) => {
       if (!dragging || !model) return;
-      // 左右＝水平回転 / 上下＝縦回転。どちらもスライドし続ければ無制限に連続回転（90°で止まらない）。
-      spin((e.clientX - lastX) * 0.01, (e.clientY - lastY) * 0.01);
+      spin((e.clientX - lastX) * 0.01);   // 横回転のみ（左右スワイプ）
       lastX = e.clientX; lastY = e.clientY;
     };
     const onUp = () => { dragging = false; };
@@ -718,8 +712,8 @@ class Game {
       if (!running) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!dragging && model) spin(dt * 0.35, 0);  // ゆっくり自動回転（水平・モデル読込後のみ）
-      if (model) { libRef.update(dt); }
+      if (!dragging && model) spin(dt * 0.35);     // ゆっくり自動回転（横・モデル読込後のみ）
+      if (model) { libRef.update(dt); if (libRef.groundToFloor) libRef.groundToFloor(); }   // 横回転は y を変えないので接地と干渉しない
       this.renderer.render(pscene, pcam);
     };
     raf = requestAnimationFrame(loop);
@@ -733,19 +727,28 @@ class Game {
         if (!running) { lib.dispose(); return; }
         await lib.loadClips();
         if (!running) { lib.dispose(); return; }
-        pitchPivot.add(lib.root);
-        lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
-        // ★ precise=true ＝全頂点を getVertexPosition(スキニング適用)で走査し「変形後の実メッシュ」の
-        //   ワールド範囲を得る。バインド姿勢やボーン位置ではなく“実際に描画される姿”の中心(≈おへそ)を原点へ。
-        const box = new THREE.Box3().setFromObject(lib.root, true);
-        const C = box.getCenter(new THREE.Vector3());
-        lib.root.position.sub(C);
-        // 回転半径＝そのバウンディング球（どの向きに回しても収まる）
-        const sphere = box.getBoundingSphere(new THREE.Sphere());
-        frameInfo = { R: (sphere.radius || 1.0) + 0.05 };
+        turntable.add(lib.root);
+        lib.play('idle'); lib.update(0);
+        if (lib.groundToFloor) lib.groundToFloor();          // 足を床(y=0)へ接地（最下ボーン基準）。以前 全身表示できていた要。
+        lib.root.updateMatrixWorld(true);
+        const box = new THREE.Box3(), v = new THREE.Vector3();
+        lib.root.traverse((o) => { if (o.isBone) { v.setFromMatrixPosition(o.matrixWorld); box.expandByPoint(v); } });
+        if (box.isEmpty()) box.setFromObject(lib.root);
+        const c = box.getCenter(new THREE.Vector3());
+        // 水平中心化＝回転軸を「体の芯＝Hips ボーン」へ。ALIEN は体が前後に偏り奥行きが深く、
+        // bbox 中心を軸にすると体が外れて“公転”する。Hips を軸にすれば他キャラ同様に体の中心で回る
+        // （他キャラは Hips≒bbox中心なので影響なし）。
+        let hb = null;
+        lib.root.traverse((o) => { if (o.isBone && hb === null && /hips$/i.test(o.name)) hb = o; });
+        let axX = c.x, axZ = c.z;
+        if (hb) { hb.getWorldPosition(v); axX = v.x; axZ = v.z; }
+        lib.root.position.x -= axX; lib.root.position.z -= axZ;   // 横回転の軸＝Hips（x=z=0）
+        // 接地済みなので全身高さ ≈ box.max.y。注視は「高さの52%」(≈おへそ)＝ボーン中心 c.y のズレに頑健。
+        const HH = Math.max(box.max.y + 0.25, 1.2);
+        frameInfo = { H: HH, navelY: HH * 0.52 };
         libRef = lib; model = lib.root;
         reframe();
-        if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
+        if (hintEl) hintEl.textContent = '⟲ 左右スワイプで回転';
       } catch (e) {
         console.warn('character preview load failed', e);
         if (hintEl) hintEl.textContent = '⚠ モデル表示に失敗（選択は可能）';
@@ -762,7 +765,7 @@ class Game {
     el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
     el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp); window.removeEventListener('pointerup', onUp);
     el.remove();
-    if (libRef) { try { if (libRef.root) pitchPivot.remove(libRef.root); libRef.dispose(); } catch (e) {} }
+    if (libRef) { try { if (libRef.root) turntable.remove(libRef.root); libRef.dispose(); } catch (e) {} }
     pscene.remove(turntable);
     this._onResize();   // ゲーム用にレンダラ/カメラの aspect を戻す
     return decision;

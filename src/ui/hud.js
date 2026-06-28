@@ -4,7 +4,7 @@
 // バナー／被弾ヴィネット／「次へ」プロンプト。冗長なテキストは排し中央を広く。
 // =====================================================================
 
-import { CONFIG } from '../core/constants.js';
+import { CONFIG } from '../core/constants.js?v=1782623521';
 
 const CSS = `
 #hud { position:fixed; inset:0; pointer-events:none; z-index:20; font-family:-apple-system,"Hiragino Kaku Gothic ProN",sans-serif; color:#eaf2ff; }

@@ -5,8 +5,8 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { AnimLibrary } from '../anim_library.js';
-import { ST, DT, CONFIG } from '../core/constants.js';
+import { AnimLibrary } from '../anim_library.js?v=1782623521';
+import { ST, DT, CONFIG } from '../core/constants.js?v=1782623521';
 
 const _v = new THREE.Vector3();
 

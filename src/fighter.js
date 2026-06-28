@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { GLTFLoader } from '../lib/loaders/GLTFLoader.js';
-import { CONFIG, MOVES, DT, blockPose, hitPose } from './config.js';
+import { GLTFLoader } from '../lib/loaders/GLTFLoader.js?v=1782623521';
+import { CONFIG, MOVES, DT, blockPose, hitPose } from './config.js?v=1782623521';
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();

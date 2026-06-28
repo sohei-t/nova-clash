@@ -4,10 +4,10 @@
 // SPEC §13 の受入基準（決定論/当たり/段/フレーム/コンボ/投げ/空中/弾/リング/KO）を満たす。
 // =====================================================================
 
-import { CONFIG, DT, TICK_HZ, ST, LEVEL, GUARD_BLOCKS } from './constants.js';
-import { makeRng } from './rng.js';
-import { MOVES, AUTO_COMBO, resolveAttackMove } from '../data/moves.js';
-import { getSpecial, PROJECTILES } from '../data/specials.js';
+import { CONFIG, DT, TICK_HZ, ST, LEVEL, GUARD_BLOCKS } from './constants.js?v=1782623521';
+import { makeRng } from './rng.js?v=1782623521';
+import { MOVES, AUTO_COMBO, resolveAttackMove } from '../data/moves.js?v=1782623521';
+import { getSpecial, PROJECTILES } from '../data/specials.js?v=1782623521';
 
 const START_SEP = 3.4;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

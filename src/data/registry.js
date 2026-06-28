@@ -6,7 +6,7 @@
 //  - assetVersion → ?v= でキャッシュ回避（同名FBX差し替え可）
 // =====================================================================
 
-import { getProfile } from './profiles.js';
+import { getProfile } from './profiles.js?v=1782623521';
 
 const BUILTIN_FALLBACK = {
   version: 1, assetVersion: 'fallback',

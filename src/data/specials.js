@@ -5,7 +5,7 @@
 // コスト: cooldown(F) = 弱い牽制 / gauge = 強い必殺・スーパー（乱射防止）。
 // =====================================================================
 
-import { LEVEL } from '../core/constants.js';
+import { LEVEL } from '../core/constants.js?v=1782623521';
 
 // 飛び道具プロトタイプ（弾エンティティの初期値）。SPEC §2.8-7。
 //   speed(m/s) damage hitstun blockstun chip radius life(F) level height strength(相殺強度)

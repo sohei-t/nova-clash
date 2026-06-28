@@ -3,7 +3,7 @@
 // buildIntent() が生成するフィールドだけを短いキーで送り、decode で emptyIntent に戻す。
 // dash*/step* は buildIntent では使われない（既定 0/false のまま）ので送らない。
 // =====================================================================
-import { emptyIntent } from '../core/sim.js';
+import { emptyIntent } from '../core/sim.js?v=1782623521';
 
 const LV = { high: 1, mid: 2, low: 3 };
 const LV_R = { 1: 'high', 2: 'mid', 3: 'low' };

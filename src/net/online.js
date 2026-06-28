@@ -8,10 +8,10 @@
 //   4) 数十フレームごとに checksum を交換し desync を検知
 // を提供する。描画/UI は main.js 側。host=player0 / guest=player1。
 // =====================================================================
-import { DT } from '../core/constants.js';
-import { NetHub } from './hub.js';
-import { LockstepSession, matchChecksum } from './lockstep.js';
-import { encodeIntent, decodeIntent } from './wire.js';
+import { DT } from '../core/constants.js?v=1782623521';
+import { NetHub } from './hub.js?v=1782623521';
+import { LockstepSession, matchChecksum } from './lockstep.js?v=1782623521';
+import { encodeIntent, decodeIntent } from './wire.js?v=1782623521';
 
 const SEND_AHEAD_CAP = 12;     // ローカル入力を相手より何フレーム先まで先行生成してよいか
 const SUM_EVERY = 30;          // desync 用 checksum 送信間隔（フレーム）

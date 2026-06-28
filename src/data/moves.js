@@ -11,7 +11,7 @@
 //   launch  : >0 で打ち上げ（ジャグル始動）
 // =====================================================================
 
-import { LEVEL } from '../core/constants.js';
+import { LEVEL } from '../core/constants.js?v=1782623521';
 
 // フレーム有利の自動算出（first-active ヒット基準の近似）
 const adv = (m) => ({
