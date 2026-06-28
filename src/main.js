@@ -21,6 +21,7 @@ import { Controller, Keyboard, KEYMAP_P1, KEYMAP_P2, buildIntent, heldOnly } fro
 import { TouchControls, isTouchDevice } from './input/touch.js';
 import { GyroControls } from './input/gyro.js';
 import { NetGame } from './net/online.js';
+import { AnimLibrary } from './anim_library.js';
 
 // 勝利ポーズの複数パターン（ダンス / カポエイラ / 派手な蹴り）。ラウンドで切替。
 const VICTORY_POSES = ['win_dance', 'win_capoeira', 'win_kick'];
@@ -213,8 +214,7 @@ class Game {
   // モード別のキャラ/ステージ/難易度選択
   async _configureMatch(mode) {
     const pick = async (title, accent, sub) => {
-      const r = await this.ui.selectCharacter(this.roster, { title, accent, sub });
-      return r;
+      return await this._pickCharacter({ title, accent, sub });
     };
     let p1 = await pick('1P キャラクター選択', '#7cf', 'PLAYER 1');
     if (p1 === '__back') return null;
@@ -490,7 +490,7 @@ class Game {
 
     // 2) 接続成立 → 各自が自分のキャラを選択（ホストはステージも）
     ui.toast('接続しました！キャラクターを選択', 1600);
-    const pick = await ui.selectCharacter(this.roster, {
+    const pick = await this._pickCharacter({
       title: 'あなたのキャラ', accent: net.isHost ? '#7cf' : '#f86',
       sub: net.isHost ? 'YOU = 1P（左）' : 'YOU = 2P（右）',
     });
@@ -588,7 +588,7 @@ class Game {
         });
         if (r.events && r.events.length) this._handleEvents(r.events);
         this._phaseBanners({});
-        this._setNetStall(net.stalledFrames > 6);
+        this._setNetStall(net.noStepFrames > 24);   // 真に進行が止まった時だけ表示（正常な先行待ちでは出さない）
 
         // 描画
         const rts = this.match.hitstop > 0 || this.match.superFreeze > 0 ? 0.04 : 1;
@@ -608,6 +608,123 @@ class Game {
       };
       this._raf = requestAnimationFrame(loop);
     });
+  }
+
+  // キャラ選択 → 詳細プレビューで確認 → 決定/戻る のループ。決定したキャラを返す（'__back' で取消）。
+  async _pickCharacter(opts) {
+    for (;;) {
+      const c = await this.ui.selectCharacter(this.roster, opts);
+      if (c === '__back') return '__back';
+      const d = await this._characterDetail(c);
+      if (d === 'confirm') return c;
+      // 'back' → グリッドへ戻る
+    }
+  }
+
+  // 1キャラの詳細画面：3Dモデルをスワイプで360°回転＋スペック確認。'confirm'|'back' を返す。
+  async _characterDetail(char) {
+    const ui = this.ui;
+    ui.hide();                                   // メニュー背景を消して 3D キャンバスを見せる
+    if (this.touch) this.touch.show(false);
+
+    const tint = char.tint || '#88aaff';
+    const badge = (char.range || '').toUpperCase() || (char.label || char.archetype || '');
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;z-index:70;touch-action:none;-webkit-user-select:none;user-select:none;font-family:-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;color:#eaf2ff';
+    el.innerHTML =
+      '<div style="position:absolute;top:0;left:0;right:0;padding:max(12px,env(safe-area-inset-top)) 16px 18px;background:linear-gradient(180deg,rgba(5,7,14,.85),transparent);display:flex;align-items:center;gap:12px;pointer-events:none">' +
+        '<div data-back style="pointer-events:auto;padding:9px 16px;border-radius:10px;border:1px solid rgba(170,200,255,.4);background:rgba(20,30,55,.7);font-weight:800;cursor:pointer">← 戻る</div>' +
+        '<div style="font-size:22px;font-weight:900;letter-spacing:1px">' + (char.nameJa || char.name) + '</div>' +
+        '<div style="font-size:11px;font-weight:800;color:' + tint + ';border:1px solid ' + tint + '66;border-radius:20px;padding:2px 10px">' + badge + '</div>' +
+      '</div>' +
+      '<div data-hint style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:.5;font-size:13px;pointer-events:none;text-shadow:0 1px 4px #000">読み込み中…</div>' +
+      '<div style="position:absolute;bottom:0;left:0;right:0;padding:18px 16px max(18px,env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(5,7,14,.92),transparent);text-align:center">' +
+        '<div style="font-size:13px;opacity:.8;margin-bottom:12px">' + (char.label || char.archetype || '') + (char.name && char.name !== (char.nameJa || '') ? ' ・ ' + char.name : '') + '</div>' +
+        '<div data-confirm style="display:inline-block;pointer-events:auto;min-width:220px;padding:15px 24px;border-radius:13px;border:2px solid ' + tint + ';background:linear-gradient(180deg,' + tint + '40,' + tint + '1c);font-size:17px;font-weight:900;letter-spacing:1px;cursor:pointer;box-shadow:0 0 24px ' + tint + '55">✓ このキャラで決定</div>' +
+      '</div>';
+    document.body.appendChild(el);
+
+    // プレビュー用シーン/カメラ
+    const pscene = new THREE.Scene();
+    pscene.add(new THREE.HemisphereLight(0x9fbfff, 0x223047, 1.5));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.5); dl.position.set(2.5, 5, 3); pscene.add(dl);
+    const dl2 = new THREE.DirectionalLight(0x88aaff, 0.5); dl2.position.set(-3, 2, -2); pscene.add(dl2);
+    const pcam = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
+
+    // 全身を腰（中央高さ）中心で収めるフレーミング。縦/横どちらでも全身が入るよう aspect を見て
+    // 「縦フィット距離」と「横フィット距離」の大きい方に合わせる。リサイズ/回転でも追従。
+    let frameInfo = null;   // { H, W }
+    const reframe = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      this.renderer.setSize(w, h);
+      pcam.aspect = w / h;
+      if (frameInfo) {
+        const cy = frameInfo.H * 0.5;                       // 腰 ≈ 中央高さ を注視
+        const vfov = pcam.fov * Math.PI / 180;
+        // 高さフィット（全身が必ず縦に収まる）。idle は立ち姿勢で常に縦長なので横クリップしない。
+        const dist = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;
+        pcam.position.set(0, cy, dist);
+        pcam.lookAt(0, cy, 0);
+      }
+      pcam.updateProjectionMatrix();
+    };
+    reframe();
+    window.addEventListener('resize', reframe);
+
+    let rotY = Math.PI * 0.08, dragging = false, lastX = 0;
+    const hintEl = el.querySelector('[data-hint]');
+    const onDown = (e) => { if (e.target.closest('[data-back],[data-confirm]')) return; dragging = true; lastX = e.clientX; if (hintEl) hintEl.style.display = 'none'; };
+    const onMove = (e) => { if (dragging) { rotY += (e.clientX - lastX) * 0.012; lastX = e.clientX; } };
+    const onUp = () => { dragging = false; };
+    el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+
+    let raf = 0, last = performance.now(), running = true, libRef = null, model = null;
+    const loop = () => {
+      if (!running) return;
+      raf = requestAnimationFrame(loop);
+      const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!dragging) rotY += dt * 0.35;            // ゆっくり自動回転
+      if (model) { libRef.update(dt); model.rotation.y = rotY; }
+      this.renderer.render(pscene, pcam);
+    };
+    raf = requestAnimationFrame(loop);
+
+    // モデルを非同期ロード → 全身bbox（バインド姿勢＝全身が確実に入る）で水平中心化＋接地＋採寸してシーンへ。
+    (async () => {
+      try {
+        const lib = new AnimLibrary({ assetVersion: this.assetVersion });
+        lib.manifest = this.manifest;
+        await lib.loadCharacterDef({ ...char, tint: null }, { assetVersion: this.assetVersion });
+        if (!running) { lib.dispose(); return; }
+        await lib.loadClips();
+        if (!running) { lib.dispose(); return; }
+        pscene.add(lib.root);
+        lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(lib.root);
+        const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+        lib.root.position.x -= ctr.x; lib.root.position.z -= ctr.z; lib.root.position.y -= box.min.y;
+        frameInfo = { H: sz.y || 1.8, W: Math.max(sz.x, sz.z) || 0.6 };
+        libRef = lib; model = lib.root;
+        reframe();
+        if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
+      } catch (e) {
+        console.warn('character preview load failed', e);
+        if (hintEl) hintEl.textContent = '⚠ モデル表示に失敗（選択は可能）';
+      }
+    })();
+
+    const decision = await new Promise((res) => {
+      el.querySelector('[data-back]').addEventListener('click', (e) => { e.preventDefault(); res('back'); });
+      el.querySelector('[data-confirm]').addEventListener('click', (e) => { e.preventDefault(); res('confirm'); });
+    });
+
+    running = false; cancelAnimationFrame(raf);
+    window.removeEventListener('resize', reframe);
+    el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+    el.remove();
+    if (libRef) { try { if (libRef.root) pscene.remove(libRef.root); libRef.dispose(); } catch (e) {} }
+    this._onResize();   // ゲーム用にレンダラ/カメラの aspect を戻す
+    return decision;
   }
 
   _setNetStall(on) {

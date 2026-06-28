@@ -5,10 +5,11 @@
 // =====================================================================
 
 const CSS = `
-#ov { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+#ov { position:fixed; inset:0; z-index:60; display:flex; align-items:safe center; justify-content:center;
   font-family:-apple-system,"Hiragino Kaku Gothic ProN",sans-serif; color:#eaf2ff;
   background:radial-gradient(120% 90% at 50% 0%, #15233f 0%, #0b1020 55%, #05070e 100%);
-  -webkit-user-select:none; user-select:none; overflow:auto; }
+  -webkit-user-select:none; user-select:none; overflow-y:auto; overflow-x:hidden;
+  touch-action:pan-y; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
 #ov.hidden { display:none; }
 #ov .wrap { width:min(960px,94vw); padding:24px; text-align:center; }
 #ov .logo { font-size:clamp(40px,9vw,86px); font-weight:900; letter-spacing:6px; line-height:1;
@@ -27,6 +28,11 @@ const CSS = `
 #ov .mbtn small { display:block; font-weight:500; opacity:.65; font-size:12px; margin-top:3px; letter-spacing:0; }
 #ov .mbtn:hover { background:linear-gradient(180deg,rgba(80,140,230,.45),rgba(50,80,150,.4)); border-color:#6cf; transform:translateY(-2px); }
 #ov .mbtn:active { transform:scale(.97); }
+#ov .mbtn.feat { border-color:#ffcf4a; background:linear-gradient(180deg,rgba(255,180,60,.32),rgba(255,120,30,.22));
+  box-shadow:0 0 0 1px rgba(255,207,74,.5), 0 0 26px rgba(255,180,60,.35); animation:featpulse 2.2s ease-in-out infinite; }
+#ov .mbtn.feat:hover { background:linear-gradient(180deg,rgba(255,200,80,.5),rgba(255,140,40,.4)); border-color:#ffe08a; }
+#ov .mbtn.feat small { opacity:.9; color:#ffe6b0; }
+@keyframes featpulse { 50% { box-shadow:0 0 0 1px rgba(255,207,74,.75), 0 0 38px rgba(255,180,60,.55); } }
 #ov .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
 #ov .card { position:relative; border-radius:14px; overflow:hidden; cursor:pointer; border:2px solid rgba(255,255,255,.12);
   background:#0e1730; padding:0; transition:transform .08s, border-color .12s, box-shadow .12s; pointer-events:auto; min-height:212px; }
@@ -81,9 +87,9 @@ export class GameUI {
     this._set(`
       <h2>モード選択</h2><div class="sub">MODE SELECT</div>
       <div class="btns">
+        <div class="mbtn feat" data-m="online">🌐 オンライン対戦<small>部屋コードでフレンドと P2P 1v1 ・ おすすめ</small></div>
         <div class="mbtn" data-m="arcade">アーケード<small>CPUを連戦して勝ち抜く</small></div>
         <div class="mbtn" data-m="vscpu">対CPU（1戦）<small>キャラ・難易度を選んで1試合</small></div>
-        <div class="mbtn" data-m="online">オンライン対戦<small>部屋コードでフレンドとP2P 1v1</small></div>
         <div class="mbtn" data-m="local2p">ローカル2P<small>同一PCで2人対戦（キーボード）</small></div>
         <div class="mbtn" data-m="training">トレーニング<small>サンドバッグ・判定/フレーム表示</small></div>
         <div class="mbtn" data-m="options">オプション<small>ジャイロ/音/演出/操作</small></div>
@@ -249,15 +255,27 @@ export class GameUI {
     return this._pick('[data-cancel]', () => '__cancel');
   }
 
+  // タップ/ドラッグ判別つき選択: pointerdown した要素の上で「ほぼ動かさず」離した時だけ確定。
+  // → スクロールのスワイプ（12px超の移動）では選択されない（誤遷移を防ぐ）。
   _pick(sel, map) {
     return new Promise((res) => {
-      const handler = (e) => {
-        const el = e.target.closest(sel); if (!el) return;
+      let downEl = null, sx = 0, sy = 0, moved = false;
+      const onDown = (e) => { downEl = e.target.closest(sel); sx = e.clientX; sy = e.clientY; moved = false; };
+      const onMove = (e) => { if (downEl && (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12)) moved = true; };
+      const onUp = (e) => {
+        const el = e.target.closest(sel);
+        const hit = downEl && el === downEl && !moved;
+        downEl = null;
+        if (!hit) return;
         e.preventDefault();
-        this.ov.removeEventListener('pointerdown', handler);
+        this.ov.removeEventListener('pointerdown', onDown);
+        this.ov.removeEventListener('pointermove', onMove);
+        this.ov.removeEventListener('pointerup', onUp);
         res(map(el));
       };
-      this.ov.addEventListener('pointerdown', handler);
+      this.ov.addEventListener('pointerdown', onDown);
+      this.ov.addEventListener('pointermove', onMove);
+      this.ov.addEventListener('pointerup', onUp);
     });
   }
 }

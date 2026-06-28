@@ -27,6 +27,36 @@
 </head>
 <body>
 <noscript>NOVA CLASH は JavaScript と WebGL2 が必要です。</noscript>
+
+<!-- ローカル開発時のみ表示する「本番公開」ボタン。serve.py の /api/deploy(localhost限定)を叩いて GitHub Pages へ公開する。
+     本番(github.io)や LAN アクセス時は hostname 判定で非表示＝誤公開しない。 -->
+<div id="pubbtn" style="display:none;position:fixed;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));z-index:400;padding:9px 14px;border-radius:10px;background:linear-gradient(180deg,#ffae3a,#ff7a1a);color:#241400;font-weight:900;font-size:14px;letter-spacing:1px;border:1px solid #ffd27a;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer;-webkit-user-select:none;user-select:none">🚀 公開</div>
+<script>
+(function () {
+  var h = location.hostname;
+  if (h !== 'localhost' && h !== '127.0.0.1') return;   // localhost のみ表示（本番/LAN では誤公開防止のため出さない）
+  var btn = document.getElementById('pubbtn');
+  btn.style.display = 'block';
+  var busy = false;
+  btn.addEventListener('click', async function () {
+    if (busy) return;
+    if (!confirm('現在のローカル版を本番(GitHub Pages)へ公開しますか？\n（push に1〜2分かかります）')) return;
+    busy = true; var label = btn.textContent; btn.textContent = '🚀 公開中…'; btn.style.opacity = '.7';
+    try {
+      var res = await fetch('/api/deploy', { method: 'POST' });
+      var j = await res.json();
+      if (j.ok) { btn.textContent = '✅ 公開しました'; alert('公開しました！\n' + (j.url || '') + '\n\n反映に約1分。スマホ等はハードリロードでキャッシュ更新を。'); }
+      else { btn.textContent = '❌ 失敗'; alert('公開に失敗しました:\n\n' + (j.error || '') + '\n' + ((j.output || '').slice(-600))); }
+    } catch (e) {
+      btn.textContent = '❌ 失敗';
+      alert('公開に失敗: ' + e + '\n\nserve.py を最新版で再起動していますか？（launch.command を再実行）');
+    } finally {
+      setTimeout(function () { btn.textContent = label; btn.style.opacity = '1'; busy = false; }, 3500);
+    }
+  });
+})();
+</script>
+
 <!-- オンライン対戦のシグナリング（window.initFirebase / firebase* を提供。モジュールより先に実行する古典スクリプト） -->
 <script src="./firebase-config.js"></script>
 <script type="module" src="./src/main.js"></script>

@@ -40,6 +40,7 @@ export class NetGame {
     this._sums = new Map();
     this._acc = 0;
     this.stalledFrames = 0;
+    this.noStepFrames = 0;     // 連続で「1フレームも進めなかった」pump 回数（=真のstall指標）
     this.desynced = false;
 
     // UI 連携コールバック（main.js が差し替える）
@@ -166,9 +167,12 @@ export class NetGame {
     // 履歴を間引き（直近のみ保持）
     if (this._sums.size > 240) { const cut = s.simFrame - 200; for (const k of this._sums.keys()) if (k < cut) this._sums.delete(k); }
 
+    // 「次フレームの相手入力をまだ持っていない」状態は入力遅延ぶん先行している正常時にも毎フレーム起きる。
+    // よって真の stall 指標は「実際に1フレームも進めなかった pump が連続した回数」にする。
     const stalled = !s.canStep() && s.localInputs.has(s.simFrame);
     this.stalledFrames = stalled ? this.stalledFrames + 1 : 0;
-    return { steps, stalled, lead: s.remoteLead(), frame: s.simFrame, events };
+    this.noStepFrames = steps > 0 ? 0 : this.noStepFrames + 1;
+    return { steps, stalled, lead: s.remoteLead(), frame: s.simFrame, events, noStep: this.noStepFrames };
   }
 
   _checkSum(frame, remoteHash) {

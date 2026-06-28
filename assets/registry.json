@@ -1,7 +1,7 @@
 {
   "version": 1,
   "_note": "データ駆動ロースター(SPEC §4.6)。新キャラ追加=再リグFBXを assets/anim/ に置き、ここに1行足すだけ。本体コード無改修。fbx 404 はフォールバック。archetype は src/data/profiles.js を参照。moves=技ID→クリップfbx の見た目差し替え(操作・判定は共通)。tint=メッシュ色味/UIアクセント。assetVersion は ?v= キャッシュ回避。",
-  "assetVersion": "20260627212848",
+  "assetVersion": "20260628092626",
   "characters": [
     {
       "id": "GAL",
@@ -133,26 +133,6 @@
       "nameJa": "",
       "tint": "#88aaff",
       "stats": {}
-    },
-    {
-      "id": "GACHAPIN-01",
-      "name": "GACHAPIN-01",
-      "archetype": "zoner",
-      "enabled": true,
-      "fbx": "GACHAPIN-01_rigged.fbx",
-      "moves": {
-        "special_cast": "fireball.fbx",
-        "kick_high": "Mma_Kick__1_.fbx",
-        "walk": "Unarmed_Walk_Forward.fbx",
-        "walk_back": "Unarmed_Run_Back.fbx",
-        "kick_low": "Mma_Kick__2_.fbx",
-        "super": "Mutant_Swiping.fbx",
-        "special_dash": "fireball.fbx"
-      },
-      "nameJa": "",
-      "tint": "#88aaff",
-      "stats": {},
-      "thumb": "assets/characters/GACHAPIN-01/thumbnail.png"
     },
     {
       "id": "MUKKU-01",
