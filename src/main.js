@@ -652,26 +652,30 @@ class Game {
     const dl2 = new THREE.DirectionalLight(0x88aaff, 0.5); dl2.position.set(-3, 2, -2); pscene.add(dl2);
     const pcam = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
 
-    // 全身を腰（中央高さ）中心で収めるフレーミング。縦/横どちらでも全身が入るよう aspect を見て
-    // 「縦フィット距離」と「横フィット距離」の大きい方に合わせる。リサイズ/回転でも追従。
-    let frameInfo = null;   // { H, W }
+    // カメラを対象の周りで公転させて全方位から見る（左右=方位角 theta / 上下=仰角 phi）。
+    // モデルは固定なので毎フレームの接地(groundToFloor)と干渉しない。距離は全身が縦に収まる高さフィット。
+    let frameInfo = null;   // { H, cy }
+    let theta = Math.PI * 0.08, phi = Math.PI * 0.5, radius = 3, dragging = false, lastX = 0, lastY = 0;
+    const place = () => {
+      if (!frameInfo) return;
+      const sp = Math.sin(phi);
+      pcam.position.set(radius * sp * Math.sin(theta), frameInfo.cy + radius * Math.cos(phi), radius * sp * Math.cos(theta));
+      pcam.lookAt(0, frameInfo.cy, 0);
+    };
     const reframe = () => {
       const w = window.innerWidth, h = window.innerHeight;
       this.renderer.setSize(w, h);
       pcam.aspect = w / h;
       if (frameInfo) {
-        const cy = frameInfo.cy;                            // 全身の縦中心（腰〜胸あたり）を注視
         const vfov = pcam.fov * Math.PI / 180;
-        const dist = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;   // 高さフィット（全身が縦に収まる）
-        pcam.position.set(0, cy, dist);
-        pcam.lookAt(0, cy, 0);
+        radius = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;
+        place();
       }
       pcam.updateProjectionMatrix();
     };
     reframe();
     window.addEventListener('resize', reframe);
 
-    let rotY = Math.PI * 0.08, dragging = false, lastX = 0;
     const hintEl = el.querySelector('[data-hint]');
 
     // 背景の濃淡トグル（黒キャラが暗背景に同化するため）。Studio と同じ localStorage キーを共有。
@@ -692,11 +696,17 @@ class Game {
     // 回転（スワイプ）。setPointerCapture + pointercancel で確実に連続 360°（dragging の取り残しを防ぐ）。
     const onDown = (e) => {
       if (e.target.closest('[data-back],[data-confirm],[data-bg]')) return;
-      dragging = true; lastX = e.clientX;
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
       try { el.setPointerCapture(e.pointerId); } catch (_) {}
       if (hintEl) hintEl.style.display = 'none';
     };
-    const onMove = (e) => { if (dragging) { rotY += (e.clientX - lastX) * 0.014; lastX = e.clientX; } };
+    const onMove = (e) => {
+      if (!dragging) return;
+      theta -= (e.clientX - lastX) * 0.01;                 // 左右ドラッグ＝水平に360°回す
+      phi += (e.clientY - lastY) * 0.01;                   // 上下ドラッグ＝上/下から覗き込む（上で頭上、下で足元）
+      phi = Math.max(0.18, Math.min(Math.PI - 0.18, phi)); // 真上/真下での反転を防ぐ
+      lastX = e.clientX; lastY = e.clientY;
+    };
     const onUp = () => { dragging = false; };
     el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
@@ -707,8 +717,9 @@ class Game {
       if (!running) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!dragging) rotY += dt * 0.35;            // ゆっくり自動回転
-      if (model) { libRef.update(dt); if (libRef.groundToFloor) libRef.groundToFloor(); model.rotation.y = rotY; }
+      if (!dragging) theta += dt * 0.35;           // ゆっくり自動回転（方位角）
+      if (model) { libRef.update(dt); if (libRef.groundToFloor) libRef.groundToFloor(); }
+      place();
       this.renderer.render(pscene, pcam);
     };
     raf = requestAnimationFrame(loop);
