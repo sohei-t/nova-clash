@@ -143,9 +143,14 @@ export class AnimLibrary {
     const loaded = [];
     await Promise.all(Object.keys(clips).map(async (name) => {
       const c = clips[name];
-      const file = overrides[name] || c.file;
-      const clip = await getCachedClip(this._url(file), file);
-      if (!clip) return; // 欠損は段階追加可
+      const ov = overrides[name];
+      let file = ov || c.file;
+      let clip = await getCachedClip(this._url(file), file);
+      if (!clip && ov && c.file && c.file !== ov) {   // キャラ別オーバーライドが欠損 → manifest 既定にフォールバック
+        file = c.file;
+        clip = await getCachedClip(this._url(file), file);
+      }
+      if (!clip) return; // 既定も欠損なら段階追加可
       const loop = c.loop !== false;
       const action = this.mixer.clipAction(clip);
       action.loop = loop ? THREE.LoopRepeat : THREE.LoopOnce;

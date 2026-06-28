@@ -664,7 +664,9 @@ class Game {
       pcam.aspect = w / h;
       if (frameInfo) {
         const vfov = pcam.fov * Math.PI / 180;
-        radius = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;   // 全身が縦に収まる距離
+        const hfov = 2 * Math.atan(Math.tan(vfov / 2) * pcam.aspect);
+        const fov = Math.min(vfov, hfov);                  // 狭い方の画角に球を収める＝どの向きでも見切れない
+        radius = frameInfo.R / Math.sin(fov / 2) * 1.1;
         pcam.position.set(0, 0, radius);
         pcam.lookAt(0, 0, 0);
       }
@@ -734,13 +736,24 @@ class Game {
         if (!running) { lib.dispose(); return; }
         pivot.add(lib.root);
         lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
-        // アニメ後の実体＝ボーンのワールド位置で全身範囲を測り、中心を pivot 原点へ寄せる（floating turntable）。
-        const box = new THREE.Box3(), v = new THREE.Vector3();
-        lib.root.traverse((o) => { if (o.isBone) { v.setFromMatrixPosition(o.matrixWorld); box.expandByPoint(v); } });
-        if (box.isEmpty()) box.setFromObject(lib.root);
-        const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-        lib.root.position.x -= ctr.x; lib.root.position.y -= ctr.y; lib.root.position.z -= ctr.z;
-        frameInfo = { H: (sz.y || 1.6) + 0.25 };             // 全身高さ + メッシュ表面ぶんの余白
+        // 回転中心＝腰(Hipsボーン)。無ければボーン境界の中心。
+        const v = new THREE.Vector3();
+        let hips = null;
+        lib.root.traverse((o) => { if (o.isBone && !hips && /hips?$/i.test(o.name)) hips = o; });
+        const center = new THREE.Vector3();
+        if (hips) hips.getWorldPosition(center);
+        else {
+          const b = new THREE.Box3();
+          lib.root.traverse((o) => { if (o.isBone) { o.getWorldPosition(v); b.expandByPoint(v); } });
+          if (b.isEmpty()) b.setFromObject(lib.root);
+          b.getCenter(center);
+        }
+        lib.root.position.sub(center);                       // 腰を pivot 原点へ
+        lib.root.updateMatrixWorld(true);
+        // 回転半径＝腰から最も遠い骨までの距離（+メッシュ表面ぶん）。どの向きに回しても収まる球。
+        let R = 0;
+        lib.root.traverse((o) => { if (o.isBone) { o.getWorldPosition(v); R = Math.max(R, v.length()); } });
+        frameInfo = { R: (R || 0.9) + 0.2 };
         libRef = lib; model = lib.root;
         reframe();
         if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
