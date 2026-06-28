@@ -652,29 +652,30 @@ class Game {
     const dl2 = new THREE.DirectionalLight(0x88aaff, 0.5); dl2.position.set(-3, 2, -2); pscene.add(dl2);
     const pcam = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
 
-    // カメラを対象の周りで公転させて全方位から見る（左右=方位角 theta / 上下=仰角 phi）。
-    // モデルは固定なので毎フレームの接地(groundToFloor)と干渉しない。距離は全身が縦に収まる高さフィット。
-    let frameInfo = null;   // { H, cy }
-    let theta = Math.PI * 0.08, phi = Math.PI * 0.5, radius = 3, dragging = false, lastX = 0, lastY = 0;
-    const place = () => {
-      if (!frameInfo) return;
-      const sp = Math.sin(phi);
-      pcam.position.set(radius * sp * Math.sin(theta), frameInfo.cy + radius * Math.cos(phi), radius * sp * Math.cos(theta));
-      pcam.lookAt(0, frameInfo.cy, 0);
-    };
+    // モデルを pivot 配下で中心化し、pivot を世界軸まわりに自由回転（トラックボール）。カメラは固定で原点を注視。
+    // クォータニオンの premultiply＝画面基準で回すので、左右も上下も極での反転やジンバルロック無く連続360°回せる。
+    const pivot = new THREE.Group(); pscene.add(pivot);
+    const WX = new THREE.Vector3(1, 0, 0), WY = new THREE.Vector3(0, 1, 0), _q = new THREE.Quaternion();
+    let frameInfo = null;   // { H }
+    let radius = 3, dragging = false, lastX = 0, lastY = 0;
     const reframe = () => {
       const w = window.innerWidth, h = window.innerHeight;
       this.renderer.setSize(w, h);
       pcam.aspect = w / h;
       if (frameInfo) {
         const vfov = pcam.fov * Math.PI / 180;
-        radius = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;
-        place();
+        radius = (frameInfo.H / 2) / Math.tan(vfov / 2) * 1.16;   // 全身が縦に収まる距離
+        pcam.position.set(0, 0, radius);
+        pcam.lookAt(0, 0, 0);
       }
       pcam.updateProjectionMatrix();
     };
     reframe();
     window.addEventListener('resize', reframe);
+    const spin = (dYaw, dPitch) => {                       // 世界軸まわりに回転を加える
+      _q.setFromAxisAngle(WY, dYaw); pivot.quaternion.premultiply(_q);
+      _q.setFromAxisAngle(WX, dPitch); pivot.quaternion.premultiply(_q);
+    };
 
     const hintEl = el.querySelector('[data-hint]');
 
@@ -702,9 +703,8 @@ class Game {
     };
     const onMove = (e) => {
       if (!dragging) return;
-      theta -= (e.clientX - lastX) * 0.01;                 // 左右ドラッグ＝水平に360°回す
-      phi += (e.clientY - lastY) * 0.01;                   // 上下ドラッグ＝上/下から覗き込む（上で頭上、下で足元）
-      phi = Math.max(0.18, Math.min(Math.PI - 0.18, phi)); // 真上/真下での反転を防ぐ
+      // 左右＝水平回転 / 上下＝縦回転。どちらもスライドし続ければ無制限に連続回転（90°で止まらない）。
+      spin((e.clientX - lastX) * 0.01, (e.clientY - lastY) * 0.01);
       lastX = e.clientX; lastY = e.clientY;
     };
     const onUp = () => { dragging = false; };
@@ -717,9 +717,8 @@ class Game {
       if (!running) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!dragging) theta += dt * 0.35;           // ゆっくり自動回転（方位角）
-      if (model) { libRef.update(dt); if (libRef.groundToFloor) libRef.groundToFloor(); }
-      place();
+      if (!dragging) spin(dt * 0.35, 0);           // ゆっくり自動回転（水平）
+      if (model) { libRef.update(dt); }
       this.renderer.render(pscene, pcam);
     };
     raf = requestAnimationFrame(loop);
@@ -733,19 +732,15 @@ class Game {
         if (!running) { lib.dispose(); return; }
         await lib.loadClips();
         if (!running) { lib.dispose(); return; }
-        pscene.add(lib.root);
-        lib.play('idle'); lib.update(0);
-        if (lib.groundToFloor) lib.groundToFloor();          // アニメ後の実際の足位置で接地（バインド姿勢ではなく）
-        lib.root.updateMatrixWorld(true);
-        // アニメ後の実体＝ボーンのワールド位置で全身範囲を測る（setFromObject はバインド姿勢しか返さずズレる）。
+        pivot.add(lib.root);
+        lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
+        // アニメ後の実体＝ボーンのワールド位置で全身範囲を測り、中心を pivot 原点へ寄せる（floating turntable）。
         const box = new THREE.Box3(), v = new THREE.Vector3();
         lib.root.traverse((o) => { if (o.isBone) { v.setFromMatrixPosition(o.matrixWorld); box.expandByPoint(v); } });
         if (box.isEmpty()) box.setFromObject(lib.root);
-        const ctr = box.getCenter(new THREE.Vector3());
-        lib.root.position.x -= ctr.x; lib.root.position.z -= ctr.z;   // 水平中心化（縦の接地は毎フレーム groundToFloor）
-        const H = box.max.y + 0.2;                            // 足元(0)〜頭ボーン + メッシュ表面ぶんの余白
-        const HH = H > 0.5 ? H : 1.8;
-        frameInfo = { H: HH, cy: HH * 0.52 };
+        const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+        lib.root.position.x -= ctr.x; lib.root.position.y -= ctr.y; lib.root.position.z -= ctr.z;
+        frameInfo = { H: (sz.y || 1.6) + 0.25 };             // 全身高さ + メッシュ表面ぶんの余白
         libRef = lib; model = lib.root;
         reframe();
         if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
@@ -765,7 +760,8 @@ class Game {
     el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
     el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp); window.removeEventListener('pointerup', onUp);
     el.remove();
-    if (libRef) { try { if (libRef.root) pscene.remove(libRef.root); libRef.dispose(); } catch (e) {} }
+    if (libRef) { try { if (libRef.root) pivot.remove(libRef.root); libRef.dispose(); } catch (e) {} }
+    pscene.remove(pivot);
     this._onResize();   // ゲーム用にレンダラ/カメラの aspect を戻す
     return decision;
   }
