@@ -735,8 +735,9 @@ class Game {
         if (!running) { lib.dispose(); return; }
         pitchPivot.add(lib.root);
         lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
-        // 見えるメッシュ境界の中心(≈おへそ)を原点へ。ボーンずれの影響を受けず、見た目の中心で回る。
-        const box = new THREE.Box3().setFromObject(lib.root);
+        // ★ precise=true ＝全頂点を getVertexPosition(スキニング適用)で走査し「変形後の実メッシュ」の
+        //   ワールド範囲を得る。バインド姿勢やボーン位置ではなく“実際に描画される姿”の中心(≈おへそ)を原点へ。
+        const box = new THREE.Box3().setFromObject(lib.root, true);
         const C = box.getCenter(new THREE.Vector3());
         lib.root.position.sub(C);
         // 回転半径＝そのバウンディング球（どの向きに回しても収まる）
