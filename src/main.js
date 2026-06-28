@@ -652,11 +652,13 @@ class Game {
     const dl2 = new THREE.DirectionalLight(0x88aaff, 0.5); dl2.position.set(-3, 2, -2); pscene.add(dl2);
     const pcam = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
 
-    // モデルを pivot 配下で中心化し、pivot を世界軸まわりに自由回転（トラックボール）。カメラは固定で原点を注視。
-    // クォータニオンの premultiply＝画面基準で回すので、左右も上下も極での反転やジンバルロック無く連続360°回せる。
-    const pivot = new THREE.Group(); pscene.add(pivot);
-    const WX = new THREE.Vector3(1, 0, 0), WY = new THREE.Vector3(0, 1, 0), _q = new THREE.Quaternion();
-    let frameInfo = null;   // { H }
+    // 入れ子: turntable(左右ヨー rotation.y) → pitchPivot(上下ピッチ rotation.x)。両方とも原点にあり、
+    // モデルは「見えるメッシュ境界(setFromObject)の中心＝おへそ付近」を原点へ合わせて配置する。
+    // ボーン位置ではなく“見た目”の中心で合わせるので、メッシュとスケルトンがズレたモデルでも公転せず中心で回る。
+    // カメラは原点固定注視＋バウンディング球フィット＝どの向きに回しても全身が画面に収まる。
+    const turntable = new THREE.Group(); pscene.add(turntable);
+    const pitchPivot = new THREE.Group(); turntable.add(pitchPivot);
+    let frameInfo = null;   // { R }
     let radius = 3, dragging = false, lastX = 0, lastY = 0;
     const reframe = () => {
       const w = window.innerWidth, h = window.innerHeight;
@@ -665,8 +667,8 @@ class Game {
       if (frameInfo) {
         const vfov = pcam.fov * Math.PI / 180;
         const hfov = 2 * Math.atan(Math.tan(vfov / 2) * pcam.aspect);
-        const fov = Math.min(vfov, hfov);                  // 狭い方の画角に球を収める＝どの向きでも見切れない
-        radius = frameInfo.R / Math.sin(fov / 2) * 1.1;
+        const fov = Math.min(vfov, hfov);                  // 狭い方の画角に球を収める＝どの向きに回しても見切れない
+        radius = frameInfo.R / Math.sin(fov / 2) * 1.08;
         pcam.position.set(0, 0, radius);
         pcam.lookAt(0, 0, 0);
       }
@@ -674,10 +676,7 @@ class Game {
     };
     reframe();
     window.addEventListener('resize', reframe);
-    const spin = (dYaw, dPitch) => {                       // 世界軸まわりに回転を加える
-      _q.setFromAxisAngle(WY, dYaw); pivot.quaternion.premultiply(_q);
-      _q.setFromAxisAngle(WX, dPitch); pivot.quaternion.premultiply(_q);
-    };
+    const spin = (dYaw, dPitch) => { turntable.rotation.y += dYaw; pitchPivot.rotation.x += dPitch; };
 
     const hintEl = el.querySelector('[data-hint]');
 
@@ -704,7 +703,7 @@ class Game {
       if (hintEl) hintEl.style.display = 'none';
     };
     const onMove = (e) => {
-      if (!dragging) return;
+      if (!dragging || !model) return;
       // 左右＝水平回転 / 上下＝縦回転。どちらもスライドし続ければ無制限に連続回転（90°で止まらない）。
       spin((e.clientX - lastX) * 0.01, (e.clientY - lastY) * 0.01);
       lastX = e.clientX; lastY = e.clientY;
@@ -719,7 +718,7 @@ class Game {
       if (!running) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!dragging) spin(dt * 0.35, 0);           // ゆっくり自動回転（水平）
+      if (!dragging && model) spin(dt * 0.35, 0);  // ゆっくり自動回転（水平・モデル読込後のみ）
       if (model) { libRef.update(dt); }
       this.renderer.render(pscene, pcam);
     };
@@ -734,26 +733,15 @@ class Game {
         if (!running) { lib.dispose(); return; }
         await lib.loadClips();
         if (!running) { lib.dispose(); return; }
-        pivot.add(lib.root);
+        pitchPivot.add(lib.root);
         lib.play('idle'); lib.update(0); lib.root.updateMatrixWorld(true);
-        // 回転中心＝腰(Hipsボーン)。無ければボーン境界の中心。
-        const v = new THREE.Vector3();
-        let hips = null;
-        lib.root.traverse((o) => { if (o.isBone && !hips && /hips?$/i.test(o.name)) hips = o; });
-        const center = new THREE.Vector3();
-        if (hips) hips.getWorldPosition(center);
-        else {
-          const b = new THREE.Box3();
-          lib.root.traverse((o) => { if (o.isBone) { o.getWorldPosition(v); b.expandByPoint(v); } });
-          if (b.isEmpty()) b.setFromObject(lib.root);
-          b.getCenter(center);
-        }
-        lib.root.position.sub(center);                       // 腰を pivot 原点へ
-        lib.root.updateMatrixWorld(true);
-        // 回転半径＝腰から最も遠い骨までの距離（+メッシュ表面ぶん）。どの向きに回しても収まる球。
-        let R = 0;
-        lib.root.traverse((o) => { if (o.isBone) { o.getWorldPosition(v); R = Math.max(R, v.length()); } });
-        frameInfo = { R: (R || 0.9) + 0.2 };
+        // 見えるメッシュ境界の中心(≈おへそ)を原点へ。ボーンずれの影響を受けず、見た目の中心で回る。
+        const box = new THREE.Box3().setFromObject(lib.root);
+        const C = box.getCenter(new THREE.Vector3());
+        lib.root.position.sub(C);
+        // 回転半径＝そのバウンディング球（どの向きに回しても収まる）
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        frameInfo = { R: (sphere.radius || 1.0) + 0.05 };
         libRef = lib; model = lib.root;
         reframe();
         if (hintEl) hintEl.textContent = '⟲ ドラッグで360°回転';
@@ -773,8 +761,8 @@ class Game {
     el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
     el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp); window.removeEventListener('pointerup', onUp);
     el.remove();
-    if (libRef) { try { if (libRef.root) pivot.remove(libRef.root); libRef.dispose(); } catch (e) {} }
-    pscene.remove(pivot);
+    if (libRef) { try { if (libRef.root) pitchPivot.remove(libRef.root); libRef.dispose(); } catch (e) {} }
+    pscene.remove(turntable);
     this._onResize();   // ゲーム用にレンダラ/カメラの aspect を戻す
     return decision;
   }
