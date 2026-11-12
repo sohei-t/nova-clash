@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "_note": "データ駆動ロースター(SPEC §4.6)。新キャラ追加=再リグFBXを assets/anim/ に置き、ここに1行足すだけ。本体コード無改修。fbx 404 はフォールバック。archetype は src/data/profiles.js を参照。moves=技ID→クリップfbx の見た目差し替え(操作・判定は共通)。tint=メッシュ色味/UIアクセント。assetVersion は ?v= キャッシュ回避。",
+  "assetVersion": "20261112110548",
+  "characters": [
+    {
+      "id": "GAL",
+      "name": "AI",
+      "nameJa": "アイ",
+      "fbx": "GAL_rigged_punch.fbx",
+      "thumb": "assets/characters/GAL/thumbnail.png",
+      "archetype": "balance",
+      "tint": "#55ddff",
+      "facingOffset": 0,
+      "moves": {
+        "kick_mid": "martelo_2.fbx",
+        "kick_high": "meia_lua_de_compasso.fbx",
+        "kick_spin": "armada.fbx",
+        "kick_low": "chapa_giratoria_2.fbx",
+        "special_dash": "flying_kick.fbx",
+        "super": "martelo_do_chau_sem_mao.fbx"
+      },
+      "enabled": true,
+      "stats": {},
+      "movesArmed": {
+        "super": "Great_Sword_Slash.fbx",
+        "idle": "Great_Sword_Idle.fbx"
+      }
+    },
+    {
+      "id": "YOSHIKATSU",
+      "name": "YOSHI",
+      "nameJa": "ヨシ",
+      "fbx": "YOSHIKATSU_rigged.fbx",
+      "archetype": "balance",
+      "tint": "#ffaa44",
+      "moves": {
+        "throw": "double_leg_takedown_attacker.fbx",
+        "special_dash": "double_leg_takedown_attacker_1.fbx",
+        "kick_low": "flying_kick.fbx",
+        "walk": "Great_Sword_Walk.fbx"
+      },
+      "enabled": true,
+      "thumb": "assets/characters/YOSHIKATSU/thumbnail.png",
+      "stats": {}
+    },
+    {
+      "id": "YANMAR",
+      "name": "Yama",
+      "nameJa": "ヤマ",
+      "fbx": "YANMAR_rigged.fbx",
+      "archetype": "balance",
+      "tint": "#cc88ff",
+      "moves": {
+        "punch_high": "illegal_elbow_punch.fbx",
+        "kick_low": "Strike_Foward_Jog.fbx"
+      },
+      "enabled": true,
+      "thumb": "assets/characters/YANMAR/thumbnail.png",
+      "stats": {}
+    },
+    {
+      "id": "NEO",
+      "name": "Bozu",
+      "archetype": "balance",
+      "enabled": true,
+      "fbx": "NEO_rigged.fbx",
+      "moves": {
+        "kick_mid": "mma_kick.fbx",
+        "kick_high": "NEO_kick_high.fbx",
+        "kick_spin": "armada.fbx",
+        "kick_low": "mma_kick.fbx",
+        "special_dash": "flying_kick.fbx",
+        "punch_hook": "NEO_punch_hook.fbx",
+        "walk": "NEO_walk.fbx",
+        "walk_back": "NEO_walk_back.fbx"
+      },
+      "nameJa": "ボウズ",
+      "tint": "#9dff8a",
+      "thumb": "assets/characters/NEO/thumbnail.png",
+      "movesArmed": {
+        "idle": "Great_Sword_Idle.fbx"
+      },
+      "stats": {}
+    }
+  ]
+}
